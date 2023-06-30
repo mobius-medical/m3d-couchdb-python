@@ -340,8 +340,11 @@ class Session(object):
                 # httplib raises a BadStatusLine when it cannot read the status
                 # line saying, "Presumably, the server closed the connection
                 # before sending a valid response."
+                # Python 2.7.16+ raises BadStatusLine('No status line received - the server has closed the connection').
+                # Python 3.5+ raises RemoteDisconnected.
                 # Raise as ECONNRESET to simplify retry logic.
-                if e.line == '' or e.line == "''":
+                if (e.line == '' or e.line == "''" or
+                    e.line == 'No status line received - the server has closed the connection'):
                     raise socket.error(errno.ECONNRESET)
                 else:
                     raise
