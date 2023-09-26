@@ -156,8 +156,8 @@ class MultipartWriter(object):
         headers['Content-Type'] = mimetype
         if content:
             headers['Content-Length'] = str(len(content))
-            hash = b64encode(md5(content).digest()).decode('ascii')
-            headers['Content-MD5'] = hash
+            # hash = b64encode(md5(content).digest()).decode('ascii')
+            # headers['Content-MD5'] = hash
         self._write_headers(headers)
         if content:
             # XXX: throw an exception if a boundary appears in the content??
