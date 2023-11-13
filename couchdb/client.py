@@ -432,8 +432,16 @@ class Database(object):
         :return: a `Row` object representing the requested document
         :rtype: `Document`
         """
-        _, _, data = _doc_resource(self.resource, id).get_json()
-        return Document(data)
+        resp = _doc_resource(self.resource, id)
+        status, headers, data = resp.get_json()
+        try:
+            doc = Document(data)
+        except Exception as exc:
+            import datetime
+            now = datetime.datetime.now()
+            import pydevd_pycharm
+            pydevd_pycharm.settrace('localhost', port=36089, stdoutToServer=True, stderrToServer=True)
+        return doc
 
     def __setitem__(self, id, content):
         """Create or update a document with the specified ID.
