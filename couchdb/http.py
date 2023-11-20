@@ -406,6 +406,7 @@ class Session(object):
                         "msg": "bad_status_line",
                         "time": time.time(),
                         "pid": os.getpid(),
+                        "tid": threading.current_thread().ident,
                         "line": e.line,
                     }
                     log.info("%s", json_dumps(log_obj))
