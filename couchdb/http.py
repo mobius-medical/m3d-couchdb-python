@@ -24,7 +24,18 @@ import threading
 
 # `import json` doesn't work as this library has a json.py file in the same directory as this one.
 json_dumps = __import__("json").dumps
-log = logging.getLogger(__name__)
+mlog = logging.getLogger("metrics.{}".format(__name__))
+
+def create_event(metric_name, **kwargs):
+    log_obj = {
+        "metric": metric_name,
+        "ts": datetime.now().isoformat(),
+        "pid": os.getpid(),
+        "tid": threading.current_thread().ident,
+    }
+    log_obj.update(kwargs)
+    json_str = json_dumps(log_obj)
+    return json_str
 
 try:
     from threading import Lock
@@ -306,51 +317,30 @@ class Session(object):
                 retry_num = -1
                 try:
                     retry_num += 1
-                    log_obj = {
-                        "msg": "request_start",
-                        "time": time.time(),
-                        "method": method,
-                        "chunked": headers.get("Transfer-Encoding") == "chunked",
-                        "url": url,
-                        "pid": os.getpid(),
-                        "tid": threading.current_thread().ident,
-                        "retry_num": retry_num,
-                    }
-                    log.info("%s", json_dumps(log_obj))
+                    mlog.debug(
+                        create_event(
+                            "http_request_started",
+                            method=method,
+                            chunked=headers.get("Transfer-Encoding") == "chunked",
+                            url=url,
+                            retry_num=retry_num, 
+                        ),
+                    )
                     response = _try_request()
                     return response
                 except socket.error as e:
                     ecode = e.args[0]
                     
                     if ecode not in self.retryable_errors:
-                        log_obj = {
-                            "msg": "non_retryable_error",
-                            "time": time.time(),
-                            "pid": os.getpid(),
-                            "tid": threading.current_thread().ident,
-                        }
-                        log.info("%s", json_dumps(log_obj))
+                        mlog.debug(create_event("non_retryable_error", ecode=ecode))
                         raise
 
                     try:
                         delay = next(retries)
-                        log_obj = {
-                            "msg": "will_retry",
-                            "delay": "delay",
-                            "time": time.time(),
-                            "pid": os.getpid(),
-                            "tid": threading.current_thread().ident,
-                        }
-                        log.info("%s", json_dumps(log_obj))
+                        mlog.debug(create_event("will_retry", delay=delay))
                     except StopIteration:
                         # No more retries, raise last socket error.
-                        log_obj = {
-                            "msg": "no_more_retry",
-                            "time": time.time(),
-                            "pid": os.getpid(),
-                            "tid": threading.current_thread().ident,
-                        }
-                        log.info("%s", json_dumps(log_obj))
+                        mlog.debug(create_event("no_more_retry"))
                         raise e
                     finally:
                         time.sleep(delay)
@@ -381,16 +371,7 @@ class Session(object):
                             conn.send(status + chunk + b'\r\n')
                         conn.send(b'0\r\n\r\n')
                 response = conn.getresponse()
-
-                log_obj = {
-                    "msg": "request_finished",
-                    "time": time.time(),
-                    "pid": os.getpid(),
-                    "status": response.status,
-                    "tid": threading.current_thread().ident,
-                }
-                log.info("%s", json_dumps(log_obj))
-
+                mlog.debug(create_event("http_request_finished", status=response.status))
                 return response
             except BadStatusLine as e:
                 # httplib raises a BadStatusLine when it cannot read the status
@@ -401,16 +382,7 @@ class Session(object):
                 # Raise as ECONNRESET to simplify retry logic.
                 if (e.line == '' or e.line == "''" or
                     e.line == 'No status line received - the server has closed the connection'):
-                    
-                    log_obj = {
-                        "msg": "bad_status_line",
-                        "time": time.time(),
-                        "pid": os.getpid(),
-                        "tid": threading.current_thread().ident,
-                        "line": e.line,
-                    }
-                    log.info("%s", json_dumps(log_obj))
-
+                    mlog.debug(create_event("will_retry", line=e.line))
                     raise socket.error(errno.ECONNRESET)
                 else:
                     raise
