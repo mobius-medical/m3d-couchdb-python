@@ -29,7 +29,7 @@ mlog = logging.getLogger("metrics.{}".format(__name__))
 def create_event(metric_name, **kwargs):
     log_obj = {
         "metric": metric_name,
-        "ts": datetime.now().isoformat(),
+        "ts": datetime.utcnow().isoformat(),
         "pid": os.getpid(),
         "tid": threading.current_thread().ident,
     }
