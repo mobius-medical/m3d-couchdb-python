@@ -199,7 +199,7 @@ class DatabaseTestCase(testutil.TempDatabaseMixin, unittest.TestCase):
         name, db = self.temp_db()
         self.assertTrue(db.name == name)
         # Access lazily loaded name,
-        self.assertTrue(client.Database(db.resource.url).name == name)
+        self.assertTrue(client.Database(db.resource.base_url).name == name)
 
     def test_commit(self):
         self.assertTrue(self.db.commit()['ok'] == True)
@@ -728,12 +728,12 @@ class ViewTestCase(testutil.TempDatabaseMixin, unittest.TestCase):
 
     def test_init_with_resource(self):
         self.db['foo'] = {}
-        view = client.PermanentView(self.db.resource('_all_docs').url, '_all_docs')
+        view = client.PermanentView(self.db.resource('_all_docs').base_url, '_all_docs')
         self.assertEqual(len(list(view())), 1)
 
     def test_iter_view(self):
         self.db['foo'] = {}
-        view = client.PermanentView(self.db.resource('_all_docs').url, '_all_docs')
+        view = client.PermanentView(self.db.resource('_all_docs').base_url, '_all_docs')
         self.assertEqual(len(list(view)), 1)
 
     def test_update_seq(self):

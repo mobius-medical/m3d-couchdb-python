@@ -24,7 +24,7 @@ import time
 import fnmatch
 
 def findpath(parser, s):
-    '''returns (server url, path component)'''
+    '''returns (server base_url, path component)'''
 
     if s == '.':
         return client.DEFAULT_BASE_URL, ''
