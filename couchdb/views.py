@@ -21,11 +21,11 @@ class ViewResult(object):
         return iter(self.rows)
 
     def json(self):
-        "Return data in a JSON-like representation."
+        """Return data in a JSON-like representation."""
         result = dict()
         result["total_rows"] = self.total_rows
         result["offset"] = self.offset
         return result
 
 
-Row = collections.namedtuple("Row", ["id", "key", "value", "doc"])
+Row = collections.namedtuple("Row", ["id", "key", "value", "error", "doc"])

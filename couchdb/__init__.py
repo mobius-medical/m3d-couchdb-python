@@ -7,9 +7,7 @@
 # you should have received as part of this distribution.
 
 from .client import Database, Document, Server
-from .http import HTTPError, PreconditionFailed, Resource, \
-        ResourceConflict, ResourceNotFound, ServerError, Session, \
-        Unauthorized, Forbidden
+from .http import ResourceConflict, ResourceNotFound
 
 try:
     __version__ = __import__('pkg_resources').get_distribution('CouchDB').version

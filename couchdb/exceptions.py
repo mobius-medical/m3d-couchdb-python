@@ -22,6 +22,7 @@ class DatabaseExists(CouchDBException):
     """Could not create a database, it exists already."""
     pass
 
+
 class LoginFailed(CouchDBException):
     """Could not authenticate the provided user."""
     pass
@@ -92,7 +93,7 @@ class HTTPPreconditionFailed(HTTPError):
 
 
 _http_error_lookup = {
-    exc.status_code: exc for exc in [HTTPBadRequest, HTTPUnauthorized, HTTPForbidden, HTTPNotFound]
+    exc.status_code: exc for exc in [HTTPBadRequest, HTTPUnauthorized, HTTPForbidden, HTTPNotFound, HTTPConflict, HTTPPreconditionFailed]
 }
 
 

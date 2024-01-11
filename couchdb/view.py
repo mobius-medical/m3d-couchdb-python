@@ -15,8 +15,9 @@ import os
 import sys
 import traceback
 from types import FunctionType
+import json
 
-from couchdb import json, util
+from couchdb import util
 
 __all__ = ['main', 'run']
 __docformat__ = 'restructuredtext en'
@@ -35,7 +36,7 @@ def run(input=sys.stdin, output=None):
         output = sys.stdout if sys.version_info[0] < 3 else sys.stdout.buffer
 
     def _writejson(obj):
-        obj = json.encode(obj)
+        obj = json.dumps(obj)
         if isinstance(obj, util.utype):
             obj = obj.encode('utf-8')
         output.write(obj)
@@ -44,7 +45,7 @@ def run(input=sys.stdin, output=None):
 
     def _log(message):
         if not isinstance(message, util.strbase):
-            message = json.encode(message)
+            message = json.dumps(message)
         _writejson(['log', message])
 
     def reset(config=None):
@@ -139,7 +140,7 @@ def run(input=sys.stdin, output=None):
             if not line:
                 break
             try:
-                cmd = json.decode(line)
+                cmd = json.loads(line)
                 log.debug('Processing %r', cmd)
             except ValueError as e:
                 log.error('Error: %s', e, exc_info=True)
@@ -189,7 +190,7 @@ def main():
     try:
         option_list, argument_list = getopt.gnu_getopt(
             sys.argv[1:], 'h',
-            ['version', 'help', 'json-module=', 'debug', 'log-file=']
+            ['version', 'help', 'debug', 'log-file=']
         )
 
         message = None
@@ -199,8 +200,6 @@ def main():
                                       version=VERSION)
             elif option in ('-h', '--help'):
                 message = _HELP % dict(name=os.path.basename(sys.argv[0]))
-            elif option in ('--json-module'):
-                json.use(module=value)
             elif option in ('--debug'):
                 log.setLevel(logging.DEBUG)
             elif option in ('--log-file'):

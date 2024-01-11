@@ -15,9 +15,9 @@ from __future__ import print_function
 from base64 import b64decode
 from optparse import OptionParser
 import sys
+import json
 
 from couchdb import __version__ as VERSION
-from couchdb import json
 from couchdb.client import Database
 from couchdb.multipart import write_multipart
 
@@ -28,7 +28,7 @@ def dump_docs(envelope, db, docs):
 
         print('Dumping document %r' % doc.id, file=sys.stderr)
         attachments = doc.pop('_attachments', {})
-        jsondoc = json.encode(doc)
+        jsondoc = json.dumps(doc)
 
         if attachments:
             parts = envelope.open({
@@ -80,9 +80,6 @@ def dump_db(dburl, username=None, password=None, boundary=None,
 
 def main():
     parser = OptionParser(usage='%prog [options] dburl', version=VERSION)
-    parser.add_option('--json-module', action='store', dest='json_module',
-                      help='the JSON module to use ("simplejson", "cjson", '
-                            'or "json" are supported)')
     parser.add_option('-u', '--username', action='store', dest='username',
                       help='the username to use for authentication')
     parser.add_option('-p', '--password', action='store', dest='password',
@@ -95,9 +92,6 @@ def main():
 
     if len(args) != 1:
         return parser.error('incorrect number of arguments')
-
-    if options.json_module:
-        json.use(options.json_module)
 
     dump_db(args[0], username=options.username, password=options.password,
             bulk_size=options.bulk_size)

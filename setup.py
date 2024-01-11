@@ -7,43 +7,15 @@
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution.
 
-import sys
-try:
-    from setuptools import setup
-    has_setuptools = True
-except ImportError:
-    from distutils.core import setup
-    has_setuptools = False
-
-
-# Build setuptools-specific options (if installed).
-if not has_setuptools:
-    print("WARNING: setuptools/distribute not available. Console scripts will not be installed.")
-    setuptools_options = {}
-else:
-    setuptools_options = {
-        'entry_points': {
-            'console_scripts': [
-                'couchpy = couchdb.view:main',
-                'couchdb-dump = couchdb.tools.dump:main',
-                'couchdb-load = couchdb.tools.load:main',
-                'couchdb-replicate = couchdb.tools.replicate:main',
-                'couchdb-load-design-doc = couchdb.loader:main',
-            ],
-        },
-        'install_requires': [],
-        'test_suite': 'couchdb.tests.__main__.suite',
-        'zip_safe': True,
-    }
-
+from setuptools import setup
 
 setup(
-    name = 'CouchDB',
-    version = '1.2.1.post1+m3d',
-    description = 'Python library for working with CouchDB',
-    long_description = \
-"""This is a Python library for CouchDB. It provides a convenient high level
-interface for the CouchDB server.""",
+    name='CouchDB',
+    version='1.2.1.post1+m3d',
+    description='Python library for working with CouchDB',
+    long_description="""
+    This is a Python library for CouchDB. It provides a convenient high level
+    interface for the CouchDB server.""",
     author = 'Christopher Lenz',
     author_email = 'cmlenz@gmx.de',
     maintainer = 'Dirkjan Ochtman',
@@ -64,5 +36,21 @@ interface for the CouchDB server.""",
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
     packages = ['couchdb', 'couchdb.tools', 'couchdb.tests'],
-    **setuptools_options
+    entry_points={
+        'console_scripts': [
+            'couchpy = couchdb.view:main',
+            'couchdb-dump = couchdb.tools.dump:main',
+            'couchdb-load = couchdb.tools.load:main',
+            'couchdb-replicate = couchdb.tools.replicate:main',
+            'couchdb-load-design-doc = couchdb.loader:main',
+        ],
+    },
+    install_requires=[
+        "furl",
+        "requests",
+        "requests_toolbelt",
+        "six",
+    ],
+    test_suite='couchdb.tests.__main__.suite',
+    zip_safe=True,
 )
