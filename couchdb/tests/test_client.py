@@ -619,7 +619,13 @@ class TestDatabase(utils.TempDatabaseMixin, unittest.TestCase):
 
     def test_security(self):
         security = self.db.security
-        self.assertEqual(security, {u'admins': {u'roles': [u'_admin']}, u'members': {u'roles': [u'_admin']}})
+        if self.db.server.version_info()[0] == 2:
+            golden_security = {}
+        elif self.db.server.version_info()[0] == 3:
+            golden_security = {u'admins': {u'roles': [u'_admin']}, u'members': {u'roles': [u'_admin']}}
+        else:
+            self.fail("Unsupported CouchDB Version")
+        self.assertEqual(security, golden_security)
         security['members'] = {'names': ['test'], 'roles': []}
         self.db.security = security
 
