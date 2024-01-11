@@ -10,9 +10,9 @@ import unittest
 
 from couchdb import multipart
 from couchdb.util import StringIO
-from couchdb.tests import testutil
 
-class ReadMultipartTestCase(unittest.TestCase):
+
+class TestReadMultipart(unittest.TestCase):
 
     def test_flat(self):
         text = b'''\
@@ -165,7 +165,7 @@ Content-Type: application/json
             break
 
 
-class WriteMultipartTestCase(unittest.TestCase):
+class TestWriteMultipart(unittest.TestCase):
 
     def test_unicode_content(self):
         buf = StringIO()
@@ -226,15 +226,3 @@ Content-Type: application/json;charset=utf-8
 
 {"_rev": "3-bc27b6930ca514527d8954c7c43e6a09", "_id": "文档"}
 '''.encode('utf-8'), buf.getvalue().replace(b'\r\n', b'\n'))
-
-
-def suite():
-    suite = unittest.TestSuite()
-    suite.addTest(testutil.doctest_suite(multipart))
-    suite.addTest(unittest.makeSuite(ReadMultipartTestCase, 'test'))
-    suite.addTest(unittest.makeSuite(WriteMultipartTestCase, 'test'))
-    return suite
-
-
-if __name__ == '__main__':
-    unittest.main(defaultTest='suite')

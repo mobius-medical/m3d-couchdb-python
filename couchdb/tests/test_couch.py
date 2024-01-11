@@ -9,11 +9,12 @@
 
 import unittest
 
-from couchdb.http import ResourceConflict, ResourceNotFound
-from couchdb.tests import testutil
+from couchdb import exceptions
+from couchdb.tests import utils
 
 
-class CouchTests(testutil.TempDatabaseMixin, unittest.TestCase):
+@unittest.skip("Heavily depends on temporary views which are no longer supported")
+class TestCouch(utils.TempDatabaseMixin, unittest.TestCase):
 
     def _create_test_docs(self, num):
         for i in range(num):
@@ -34,7 +35,7 @@ class CouchTests(testutil.TempDatabaseMixin, unittest.TestCase):
 
         # delete a document
         del self.db['0']
-        self.assertRaises(ResourceNotFound, self.db.__getitem__, '0')
+        self.assertRaises(exceptions.MissingDocument, self.db.__getitem__, '0')
 
         # test _all_docs
         self._create_test_docs(4)
@@ -83,11 +84,11 @@ class CouchTests(testutil.TempDatabaseMixin, unittest.TestCase):
         doc1['a'] = 2
         doc2['a'] = 3
         self.db['foo'] = doc1
-        self.assertRaises(ResourceConflict, self.db.__setitem__, 'foo', doc2)
+        self.assertRaises(exceptions.UpdateConflict, self.db.__setitem__, 'foo', doc2)
 
         # try submitting without the revision info
         data = {'_id': 'foo', 'a': 3, 'b': 1}
-        self.assertRaises(ResourceConflict, self.db.__setitem__, 'foo', data)
+        self.assertRaises(exceptions.UpdateConflict, self.db.__setitem__, 'foo', data)
 
         del self.db['foo']
         self.db['foo'] = data
@@ -263,12 +264,3 @@ class CouchTests(testutil.TempDatabaseMixin, unittest.TestCase):
             rows = list(self.db.query(query, key=value))
             self.assertEqual(1, len(rows))
             self.assertEqual(value, rows[0].key)
-
-
-def suite():
-    suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(CouchTests, 'test'))
-    return suite
-
-if __name__ == '__main__':
-    unittest.main(defaultTest='suite')

@@ -10,7 +10,6 @@ import unittest
 import os.path
 
 from couchdb import loader
-from couchdb.tests import testutil
 
 expected = {
  '_id': u'_design/loader',
@@ -18,7 +17,8 @@ expected = {
  'language': u'javascript',
  'views': {'a': {'map': u'function(doc) {\n  emit(doc.property_to_index);\n}'}}}
 
-class LoaderTestCase(unittest.TestCase):
+
+class TestLoader(unittest.TestCase):
 
     directory = os.path.join(os.path.dirname(__file__), '_loader')
 
@@ -52,13 +52,3 @@ class LoaderTestCase(unittest.TestCase):
                                      not x.endswith('language.xml'))
 
         self.assertRaises(loader.DuplicateKeyError, clobber)
-
-
-def suite():
-    suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(LoaderTestCase))
-    return suite
-
-
-if __name__ == '__main__':
-    unittest.main(defaultTest='suite')

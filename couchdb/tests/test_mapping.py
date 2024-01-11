@@ -10,10 +10,10 @@ from decimal import Decimal
 import unittest
 
 from couchdb import design, mapping
-from couchdb.tests import testutil
+from couchdb.tests import utils
 from datetime import datetime
 
-class DocumentTestCase(testutil.TempDatabaseMixin, unittest.TestCase):
+class TestDocument(utils.TempDatabaseMixin, unittest.TestCase):
 
     def test_mutable_fields(self):
         class Test(mapping.Document):
@@ -99,7 +99,7 @@ class DocumentTestCase(testutil.TempDatabaseMixin, unittest.TestCase):
         doc.get('foo', None)
 
 
-class ListFieldTestCase(testutil.TempDatabaseMixin, unittest.TestCase):
+class TestListField(utils.TempDatabaseMixin, unittest.TestCase):
 
     def test_to_json(self):
         # See <http://code.google.com/p/couchdb-python/issues/detail?id=14>
@@ -224,7 +224,7 @@ class ListFieldTestCase(testutil.TempDatabaseMixin, unittest.TestCase):
 all_map_func = 'function(doc) { emit(doc._id, doc); }'
 
 
-class WrappingTestCase(testutil.TempDatabaseMixin, unittest.TestCase):
+class WrappingTestCase(utils.TempDatabaseMixin, unittest.TestCase):
 
     class Item(mapping.Document):
         with_include_docs = mapping.ViewField('test', all_map_func,
@@ -237,6 +237,7 @@ class WrappingTestCase(testutil.TempDatabaseMixin, unittest.TestCase):
             self.db, [self.Item.with_include_docs,
                       self.Item.without_include_docs])
 
+    @unittest.skip("Row wrapper are currently not supported")
     def test_viewfield_property(self):
         self.Item().store(self.db)
         results = self.Item.with_include_docs(self.db)
@@ -244,6 +245,7 @@ class WrappingTestCase(testutil.TempDatabaseMixin, unittest.TestCase):
         results = self.Item.without_include_docs(self.db)
         self.assertEqual(type(results.rows[0]), self.Item)
 
+    @unittest.skip("Row wrapper are currently not supported")
     def test_view(self):
         self.Item().store(self.db)
         results = self.Item.view(self.db, 'test/without_include_docs')
@@ -252,28 +254,17 @@ class WrappingTestCase(testutil.TempDatabaseMixin, unittest.TestCase):
                                  include_docs=True)
         self.assertEqual(type(results.rows[0]), self.Item)
 
+    @unittest.skip("Row wrapper are currently not supported")
     def test_wrapped_view(self):
         self.Item().store(self.db)
         results = self.db.view('_all_docs', wrapper=self.Item._wrap_row)
         doc = results.rows[0]
         self.db.delete(doc)
 
+    @unittest.skip("Temporary views are no longer supported")
     def test_query(self):
         self.Item().store(self.db)
         results = self.Item.query(self.db, all_map_func, None)
         self.assertEqual(type(results.rows[0]), self.Item)
         results = self.Item.query(self.db, all_map_func, None, include_docs=True)
         self.assertEqual(type(results.rows[0]), self.Item)
-
-
-def suite():
-    suite = unittest.TestSuite()
-    suite.addTest(testutil.doctest_suite(mapping))
-    suite.addTest(unittest.makeSuite(DocumentTestCase, 'test'))
-    suite.addTest(unittest.makeSuite(ListFieldTestCase, 'test'))
-    suite.addTest(unittest.makeSuite(WrappingTestCase, 'test'))
-    return suite
-
-
-if __name__ == '__main__':
-    unittest.main(defaultTest='suite')

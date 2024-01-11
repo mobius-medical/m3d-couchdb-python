@@ -9,10 +9,10 @@
 import unittest
 
 from couchdb import design
-from couchdb.tests import testutil
+from couchdb.tests import utils
 
 
-class DesignTestCase(testutil.TempDatabaseMixin, unittest.TestCase):
+class TestDesign(utils.TempDatabaseMixin, unittest.TestCase):
 
     def test_options(self):
         options = {'collation': 'raw'}
@@ -27,7 +27,7 @@ class DesignTestCase(testutil.TempDatabaseMixin, unittest.TestCase):
 
     def test_retrieve_view_defn(self):
         '''see issue 183'''
-        view_def = design.ViewDefinition('foo', 'bar', 'baz')
+        view_def = design.ViewDefinition('foo', 'bar', 'function(doc) {emit(doc._id, doc._rev)}')
         result = view_def.sync(self.db)
         self.assertTrue(isinstance(result, list))
         self.assertEqual(result[0][0], True)
@@ -46,14 +46,3 @@ class DesignTestCase(testutil.TempDatabaseMixin, unittest.TestCase):
             db, (first_view, second_view, third_view))
         self.assertEqual(
             len(results), 2, 'There should only be two design documents')
-
-
-def suite():
-    suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(DesignTestCase))
-    suite.addTest(testutil.doctest_suite(design))
-    return suite
-
-
-if __name__ == '__main__':
-    unittest.main(defaultTest='suite')

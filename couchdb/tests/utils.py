@@ -32,7 +32,7 @@ class TempDatabaseMixin(object):
     _db = None
 
     def setUp(self):
-        self.server = client.Server(full_commit=False)
+        self.server = client.Server()
 
     def tearDown(self):
         if self.temp_dbs:
