@@ -29,16 +29,17 @@ import json
 import itertools
 import mimetypes
 import os
-from types import FunctionType
-from inspect import getsource
-from textwrap import dedent
+import copy
 
 import furl
 import six
 import requests.exceptions
+import requests.utils
 from requests_toolbelt import sessions
+from urllib3 import fields, filepost
 
 from couchdb import http, util, exceptions, views
+
 
 __all__ = ['Server', 'Database', 'Document', 'ViewResults', 'Row']
 __docformat__ = 'restructuredtext en'
@@ -54,7 +55,81 @@ def _jsons(data, indent=None):
 
 
 def quote(name, safe=''):
+    """Small wrapper for furl.quote with different default 'safe' parameter"""
     return furl.quote(name, safe=safe)
+
+
+def _build_file_tuple(attachments):
+    """Convert a list of attachments (file objects or tuples) into a list of tuples for request encoding.
+
+    The tuples may be 2-tuples (filename, fileobj), 3-tuples (filename, fileobj, content_type).
+    :returns A list of tuples for every attachments consisting of (filename, data, content_type)
+    """
+    file_tuples = []
+    for attachment in attachments:
+        filename = None
+        data = None
+        content_type = None
+        if isinstance(attachment, (tuple, list)):
+            if len(attachment) == 2:
+                filename, fileobj = attachment
+            else:
+                filename, fileobj, content_type = attachment
+        else:
+            filename = requests.utils.guess_filename(attachment)
+            fileobj = attachment
+
+        if not filename:
+            raise ValueError('Could not determine filename from file object and no filename supplied')
+
+        if not content_type:
+            (content_type, _encoding) = mimetypes.guess_type(filename, strict=False)
+            content_type = content_type or BIN_MIME
+
+        if hasattr(fileobj, "read"):
+            data = fileobj.read()
+        elif isinstance(fileobj, six.text_type):
+            data = fileobj.encode("UTF8")
+        else:
+            data = fileobj
+
+        file_tuples.append((filename, data, content_type))
+
+    return file_tuples
+
+
+def _encode_multipart_attachment_upload(doc, attachments):
+    """Encode a multipart/related document upload consisting of a document and attachments"""
+    doc = copy.deepcopy(doc)
+    if "_attachments" not in doc:
+        doc["_attachments"] = {}
+
+    file_tuples = _build_file_tuple(attachments)
+    attachment_fields = []
+    for filename, data, content_type in file_tuples:
+        doc["_attachments"][filename] = {
+            "follows": True,
+            "length": len(data),
+            "content_type": content_type,
+        }
+        field = fields.RequestField(
+            name=filename,
+            data=data,
+            headers={'Content-Type': content_type}
+        )
+        attachment_fields.append(field)
+
+    doc_field = fields.RequestField(
+        name=doc["_id"],
+        data=json.dumps(doc),
+        headers={'Content-Type': 'application/json; charset=UTF-8'},
+    )
+
+    boundary = filepost.choose_boundary()
+    body, _ = filepost.encode_multipart_formdata([doc_field] + attachment_fields, boundary)
+    content_type = 'multipart/related; boundary=%s' % boundary
+
+    return body, content_type
 
 
 class Session(object):
@@ -536,7 +611,7 @@ class Database(object):
     def security(self, doc):
         self.server.session.put(self.path.add("_security"), json=doc)
 
-    def save(self, doc, batch=False):
+    def save(self, doc, batch=False, attachments=None):
         """Create a new document or update an existing document.
 
         If doc has no _id then the server will allocate a random ID and a new
@@ -559,15 +634,30 @@ class Database(object):
             db.save(doc)
 
         :param doc: the document to store
-        :param options: optional args, e.g. batch='ok'
+        :param batch: Trigger whether to use batch upload or normal upload
+        :param attachments: A list of attachments to include into the document,
+                            will use `multipart/related` upload when used.
         :return: (id, rev) tuple of the save document
         :rtype: `tuple`
         """
         params = {'batch': 'ok'} if batch else {}
-        try:
-            data = self.server.session.post(self.path, json=doc, params=params).json()
-        except exceptions.HTTPConflict as exc:
-            six.raise_from(exceptions.UpdateConflict, exc)
+        if attachments:
+            body, content_type = _encode_multipart_attachment_upload(doc, attachments)
+            params['uploadType'] = 'multipart'
+            try:
+                data = self.server.session.put(
+                    self.path.add([doc['_id']]),
+                    data=body,
+                    params=params,
+                    headers={'Content-Type': content_type}
+                ).json()
+            except exceptions.HTTPConflict as exc:
+                six.raise_from(exceptions.UpdateConflict, exc)
+        else:
+            try:
+                data = self.server.session.post(self.path, json=doc, params=params).json()
+            except exceptions.HTTPConflict as exc:
+                six.raise_from(exceptions.UpdateConflict, exc)
 
         # TODO: I'm not a fan of this side-effect on given data
         doc['_id'] = data['id']
@@ -856,13 +946,11 @@ class Database(object):
                              extension
         :since: 0.4.1
         """
+        filename = filename or requests.utils.guess_filename(content)
         if filename is None:
-            try:
-                filename = os.path.basename(content.name)
-            except AttributeError as exc:
-                six.raise_from(ValueError('Could not determine filename from file object'), exc)
+            raise ValueError('Could not determine filename from file object')
         if not content_type:
-            (content_type, enc) = mimetypes.guess_type(filename, strict=False)
+            (content_type, _encoding) = mimetypes.guess_type(filename, strict=False)
             if not content_type:
                 content_type = BIN_MIME
         headers = {"Content-Type": content_type, "If-Match": doc["_rev"]}

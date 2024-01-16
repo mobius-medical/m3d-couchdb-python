@@ -5,7 +5,7 @@
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution.
-
+import copy
 from datetime import datetime
 import os
 import os.path
@@ -334,9 +334,8 @@ class TestDatabase(utils.TempDatabaseMixin, unittest.TestCase):
     def test_attachment_from_fs(self):
         tmpdir = tempfile.mkdtemp()
         tmpfile = os.path.join(tmpdir, 'test.txt')
-        f = open(tmpfile, 'w')
-        f.write('Hello!')
-        f.close()
+        with open(tmpfile, 'w') as f:
+            f.write('Hello!')
         doc = {}
         self.db['foo'] = doc
         with open(tmpfile) as f:
@@ -344,6 +343,55 @@ class TestDatabase(utils.TempDatabaseMixin, unittest.TestCase):
         doc = self.db.get('foo')
         self.assertTrue(doc['_attachments']['test.txt']['content_type'] == 'text/plain')
         shutil.rmtree(tmpdir)
+
+    def test_save_with_attachments(self):
+        base_doc = {'_id': 'test_doc_with_attachments'}
+
+        tmpdir = tempfile.mkdtemp()
+        tmpfile = os.path.join(tmpdir, 'test.txt')
+        with open(tmpfile, 'w') as f:
+            f.write('Hello!')
+
+        # Filename and content type come from file object
+        with open(tmpfile) as f:
+            self.db.save(copy.deepcopy(base_doc), attachments=[f])
+        doc = self.db[base_doc['_id']]
+        self.assertTrue(doc['_attachments']['test.txt']['content_type'] == 'text/plain')
+        self.assertEqual(self.db.get_attachment(doc, filename='test.txt').read(), 'Hello!')
+        del self.db[base_doc['_id']]
+
+        # Overwrite filename
+        with open(tmpfile) as f:
+            self.db.save(copy.deepcopy(base_doc), attachments=[('new_filename.csv', f)])
+        doc = self.db[base_doc['_id']]
+        self.assertTrue(doc['_attachments']['new_filename.csv']['content_type'] == 'text/csv')
+        self.assertEqual(self.db.get_attachment(doc, filename='new_filename.csv').read(), 'Hello!')
+        del self.db[base_doc['_id']]
+
+        # Overwrite filename and content_type
+        with open(tmpfile) as f:
+            self.db.save(copy.deepcopy(base_doc), attachments=[('new_filename.csv', f, 'text/html')])
+        doc = self.db[base_doc['_id']]
+        self.assertTrue(doc['_attachments']['new_filename.csv']['content_type'] == 'text/html')
+        self.assertEqual(self.db.get_attachment(doc, filename='new_filename.csv').read(), 'Hello!')
+        del self.db[base_doc['_id']]
+
+        # No file object just data
+        self.db.save(copy.deepcopy(base_doc), attachments=[('new_filename.csv', "SOME TEXT", 'text/html')])
+        doc = self.db[base_doc['_id']]
+        self.assertTrue(doc['_attachments']['new_filename.csv']['content_type'] == 'text/html')
+        self.assertEqual(self.db.get_attachment(doc, filename='new_filename.csv').read(), 'SOME TEXT')
+        del self.db[base_doc['_id']]
+
+        # Multiple attachments
+        self.db.save(copy.deepcopy(base_doc), attachments=[('1.txt', "1"), ("2.txt", "2")])
+        doc = self.db[base_doc['_id']]
+        self.assertEqual(len(doc['_attachments']), 2)
+        self.assertIn('1.txt', doc['_attachments'])
+        self.assertIn('2.txt', doc['_attachments'])
+        self.assertEqual(self.db.get_attachment(doc, filename='1.txt').read(), '1')
+        self.assertEqual(self.db.get_attachment(doc, filename='2.txt').read(), '2')
+        del self.db[base_doc['_id']]
 
     def test_attachment_no_filename(self):
         doc = {}
