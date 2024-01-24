@@ -8,13 +8,23 @@ class UpdateConflict(CouchDBException):
     pass
 
 
-class MissingDocument(CouchDBException):
+class MissingResource(CouchDBException):
+    """A requested resource (database, document, view) does not exist"""
+    pass
+
+
+class MissingDocument(MissingResource):
     """A requested document does not exist."""
     pass
 
 
-class MissingDatabase(CouchDBException):
+class MissingDatabase(MissingResource):
     """A requested database does not exist."""
+    pass
+
+
+class MissingView(MissingResource):
+    """A requested view does not exist"""
     pass
 
 

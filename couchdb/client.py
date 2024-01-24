@@ -575,7 +575,11 @@ class Database(object):
 
         :param id: the document ID
         """
-        resp = self.server.session.head(self.path.add([id]))
+        try:
+            resp = self.server.session.head(self.path.add([id]))
+        except exceptions.HTTPNotFound as exc:
+            self.check()
+            six.raise_from(exceptions.MissingDocument("Document '%s' does not exist" % id), exc)
         rev = resp.headers['ETag'].strip('"')
         return self.delete({'_id': id, '_rev': rev})
 
@@ -589,7 +593,8 @@ class Database(object):
         try:
             return Document(self.server.session.get(self.path.add([id])).json())
         except exceptions.HTTPNotFound as exc:
-            six.raise_from(exceptions.MissingDocument("Document does not exist"), exc)
+            self.check()
+            six.raise_from(exceptions.MissingDocument("Document '%s' does not exist" % id), exc)
 
     def __setitem__(self, id, content):
         """Create or update a document with the specified ID.
@@ -777,7 +782,11 @@ class Database(object):
         """
         if doc['_id'] is None:
             raise ValueError('document ID cannot be None')
-        self.server.session.delete(self.path.add([doc['_id']]), params={'rev': doc['_rev']})
+        try:
+            self.server.session.delete(self.path.add([doc['_id']]), params={'rev': doc['_rev']})
+        except exceptions.HTTPNotFound as exc:
+            self.check()
+            six.raise_from(exceptions.MissingDocument("Document '%s' does not exist" % doc['_id']), exc)
 
     def get(self,
             id,
@@ -1239,7 +1248,14 @@ class Database(object):
         else:
             path = self.path.add(["_design", design_doc, "_view", view_name])
 
-        data = self.server.session.get(path, params=params).json()
+        try:
+            data = self.server.session.get(path, params=params).json()
+        except exceptions.HTTPNotFound as exc:
+            self.check()
+            if "_design/{}".format(design_doc) not in self:
+                six.raise_from(exceptions.MissingDocument("Design doc '%s' does not exist" % design_doc), exc)
+            six.raise_from(exceptions.MissingView("View '%s' in design doc '%s' does not exist" % (view_name, design_doc)), exc)
+
         return views.ViewResult(
             [
                 views.Row(r.get("id"), r.get("key"), r.get("value"), r.get("error"), r.get("doc"))
