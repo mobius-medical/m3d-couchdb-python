@@ -7,7 +7,9 @@
 # you should have received as part of this distribution.
 
 from .client import Database, Document, Server
+from .views import ViewResult, Row
 from .http import ResourceConflict, ResourceNotFound
+from .exceptions import DatabaseExists, MissingDatabase, UpdateConflict, MissingDocument
 
 try:
     __version__ = __import__('pkg_resources').get_distribution('CouchDB').version
