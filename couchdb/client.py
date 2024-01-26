@@ -533,6 +533,16 @@ class Database(object):
         if not self.exists():
             raise exceptions.MissingDatabase("Database does not exist")
 
+    def create(self):
+        """Create database if it doesn't already exist"""
+        if not self.exists():
+            self.server.create(self.name)
+
+    def destroy(self):
+        """Destrpy (delete) database in CouchDB"""
+        if self.exists():
+            self.server.delete(self.name)
+
     def __repr__(self):
         return '<%s %r>' % (type(self).__name__, self.name)
 
