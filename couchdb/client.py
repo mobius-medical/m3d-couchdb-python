@@ -208,17 +208,16 @@ class Server(object):
 
         :param url: the URI of the server (for example ``http://localhost:5984/``)
         """
-        self._url = url
         if session:
             self._session = session
             self._session.base_url = url
         else:
-            self._session = Session(base_url=self._url)
+            self._session = Session(base_url=url)
         self._version_info = None
 
     @property
     def url(self):
-        return self._url
+        return self._session.base_url
 
     @property
     def session(self):
@@ -521,6 +520,10 @@ class Database(object):
     @property
     def path(self):
         return furl.Path(quote(self.name))
+
+    @property
+    def url(self):
+        return furl.furl(self.server.url).add(path=self.name).url
 
     def exists(self):
         try:
