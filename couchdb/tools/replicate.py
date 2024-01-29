@@ -17,7 +17,7 @@ CouchDB versions.
 Use 'python replicate.py --help' to get more detailed usage instructions.
 """
 
-from couchdb import http, client, util
+from couchdb import client, util
 import optparse
 import sys
 import time
@@ -25,7 +25,7 @@ import fnmatch
 
 def findpath(parser, s):
     '''returns (server base_url, path component)'''
-
+    raise NotImplementedError("Needs re-implementation")
     if s == '.':
         return client.DEFAULT_BASE_URL, ''
     if not s.startswith('http'):

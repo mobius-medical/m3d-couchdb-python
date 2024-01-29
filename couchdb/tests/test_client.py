@@ -17,7 +17,7 @@ import unittest
 
 import furl
 
-from couchdb import client, http, util, exceptions
+from couchdb import client, util, exceptions
 from couchdb.tests import utils
 
 

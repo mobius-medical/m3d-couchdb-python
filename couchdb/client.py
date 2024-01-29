@@ -38,7 +38,7 @@ import requests.utils
 from requests_toolbelt import sessions
 from urllib3 import fields, filepost
 
-from couchdb import http, util, exceptions, views
+from couchdb import util, exceptions, views
 
 
 __all__ = ['Server', 'Database', 'Document', 'ViewResults', 'Row']
@@ -1493,8 +1493,9 @@ class Indexes(object):
     """
 
     def __init__(self, url, session=None):
+        raise NotImplementedError("Needs re-implementation")
         if isinstance(url, util.strbase):
-            self.resource = http.Resource(url, session)
+            # self.resource = http.Resource(url, session)
         else:
             self.resource = url
 

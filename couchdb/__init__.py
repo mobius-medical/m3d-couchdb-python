@@ -8,7 +8,6 @@
 
 from .client import Database, Document, Server
 from .views import ViewResult, Row
-from .http import ResourceConflict, ResourceNotFound
 from .exceptions import DatabaseExists, MissingDatabase, UpdateConflict, MissingDocument, MissingView, MissingResource
 
 try:
