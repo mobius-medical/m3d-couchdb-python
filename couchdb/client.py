@@ -1230,35 +1230,35 @@ class Database(object):
         """
         params = {}
         if startkey is not None:
-            params["startkey"] = _jsons(startkey)
+            params["startkey"] = startkey
         if key is not None:
-            params["key"] = _jsons(key)
+            params["key"] = key
         if keys is not None:
-            params["keys"] = _jsons(keys)
+            params["keys"] = keys
         if endkey is not None:
-            params["endkey"] = _jsons(endkey)
+            params["endkey"] = endkey
         if skip is not None:
-            params["skip"] = _jsons(skip)
+            params["skip"] = skip
         if limit is not None:
-            params["limit"] = _jsons(limit)
+            params["limit"] = limit
         if sorted is not None:
-            params["sorted"] = _jsons(sorted)
+            params["sorted"] = bool(sorted)
         if descending is not None:
-            params["descending"] = _jsons(descending)
+            params["descending"] = bool(descending)
         if group is not None:
-            params["group"] = _jsons(group)
+            params["group"] = bool(group)
         if group_level is not None:
-            params["group_level"] = _jsons(group_level)
+            params["group_level"] = group_level
         if reduce is not None:
-            params["reduce"] = _jsons(bool(reduce))
+            params["reduce"] = bool(reduce)
         if include_docs is not None:
-            params["include_docs"] = _jsons(include_docs)
+            params["include_docs"] = bool(include_docs)
             # params["reduce"] = _jsons(False)
         if update is not None:
             assert update in ["true", "false", "lazy"]
             params["update"] = update
         if stable is not None:
-            params["stable"] = _jsons(stable)
+            params["stable"] = bool(stable)
 
         if design_doc is None:
             assert view_name.startswith("_")
@@ -1267,7 +1267,7 @@ class Database(object):
             path = self.path.add(["_design", design_doc, "_view", view_name])
 
         try:
-            data = self.server.session.get(path, params=params).json()
+            data = self.server.session.post(path, json=params).json()
         except exceptions.HTTPNotFound as exc:
             self.check()
             if "_design/{}".format(design_doc) not in self:
