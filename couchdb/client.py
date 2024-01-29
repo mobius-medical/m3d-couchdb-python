@@ -41,7 +41,7 @@ from urllib3 import fields, filepost
 from couchdb import util, exceptions, views
 
 
-__all__ = ['Server', 'Database', 'Document', 'ViewResults', 'Row']
+__all__ = ['Server', 'Database', 'Document']
 __docformat__ = 'restructuredtext en'
 
 
@@ -1495,6 +1495,7 @@ class Indexes(object):
     def __init__(self, url, session=None):
         raise NotImplementedError("Needs re-implementation")
         if isinstance(url, util.strbase):
+            pass
             # self.resource = http.Resource(url, session)
         else:
             self.resource = url
