@@ -1174,13 +1174,14 @@ class Database(object):
         endkey=None,
         skip=None,
         limit=None,
-        sorted=True,
-        descending=False,
-        group=False,
+        sorted=None,
+        descending=None,
+        group=None,
         group_level=None,
         reduce=None,
-        include_docs=False,
+        include_docs=None,
         update=None,
+        stable=None,
     ):
         """Query a view index to obtain data and/or documents.
 
@@ -1211,6 +1212,8 @@ class Database(object):
         - `update="true"`: Whether or not the view should be updated prior to
           returning the result. Supported value are `"true"`, `"false"`
           and `"lazy"`.
+        - `stable="true": Whether or not the view results should be returned from a stable set of
+        shards. Default is false.
 
         Returns a ViewResult instance, containing the following attributes:
 
@@ -1238,22 +1241,24 @@ class Database(object):
             params["skip"] = _jsons(skip)
         if limit is not None:
             params["limit"] = _jsons(limit)
-        if not sorted:
-            params["sorted"] = _jsons(False)
-        if descending:
-            params["descending"] = _jsons(True)
-        if group:
-            params["group"] = _jsons(True)
+        if sorted is not None:
+            params["sorted"] = _jsons(sorted)
+        if descending is not None:
+            params["descending"] = _jsons(descending)
+        if group is not None:
+            params["group"] = _jsons(group)
         if group_level is not None:
             params["group_level"] = _jsons(group_level)
         if reduce is not None:
             params["reduce"] = _jsons(bool(reduce))
-        if include_docs:
-            params["include_docs"] = _jsons(True)
-            params["reduce"] = _jsons(False)
+        if include_docs is not None:
+            params["include_docs"] = _jsons(include_docs)
+            # params["reduce"] = _jsons(False)
         if update is not None:
             assert update in ["true", "false", "lazy"]
             params["update"] = update
+        if stable is not None:
+            params["stable"] = _jsons(stable)
 
         if design_doc is None:
             assert view_name.startswith("_")
