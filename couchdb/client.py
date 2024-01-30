@@ -134,9 +134,12 @@ def _encode_multipart_attachment_upload(doc, attachments):
 
 class Session(object):
     """Wrapper around BaseUrlSession that automatically wraps certain exceptions when making requests"""
+    _DEFAULT_HEADERS = {'Accept': 'application/json'}
 
-    def __init__(self, base_url=None):
+    def __init__(self, base_url=None, headers=None):
         self._base_session = sessions.BaseUrlSession(base_url=base_url)
+        if headers is None:
+            self.headers.update(self._DEFAULT_HEADERS)
 
     @property
     def base_url(self):
@@ -145,6 +148,14 @@ class Session(object):
     @base_url.setter
     def base_url(self, url):
         self._base_session.base_url = url
+
+    @property
+    def headers(self):
+        return self._base_session.headers
+
+    @headers.setter
+    def headers(self, headers):
+        self._base_session.headers = headers
 
     def request(self, method, url, *args, **kwargs):
         try:
