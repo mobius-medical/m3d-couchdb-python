@@ -35,7 +35,9 @@ import furl
 import six
 import requests.exceptions
 import requests.utils
+import requests.adapters
 from requests_toolbelt import sessions
+import urllib3
 from urllib3 import fields, filepost
 
 from couchdb import util, exceptions, views
@@ -47,6 +49,9 @@ __docformat__ = 'restructuredtext en'
 
 DEFAULT_BASE_URL = os.environ.get('COUCHDB_URL', 'http://localhost:5984/')
 BIN_MIME = "application/octet-stream"
+DEFAULT_RETRY_STRATEGY = urllib3.Retry(
+    total=10,
+)
 
 
 def _jsons(data, indent=None):
@@ -136,10 +141,13 @@ class Session(object):
     """Wrapper around BaseUrlSession that automatically wraps certain exceptions when making requests"""
     _DEFAULT_HEADERS = {'Accept': 'application/json'}
 
-    def __init__(self, base_url=None, headers=None):
+    def __init__(self, base_url=None, timeout=60, retry_strategy=DEFAULT_RETRY_STRATEGY):
         self._base_session = sessions.BaseUrlSession(base_url=base_url)
-        if headers is None:
-            self.headers.update(self._DEFAULT_HEADERS)
+        self.timeout = timeout
+        self.headers.update(self._DEFAULT_HEADERS)
+        adapter = requests.adapters.HTTPAdapter(max_retries=retry_strategy)
+        self._base_session.mount('http://', adapter)
+        self._base_session.mount('https://', adapter)
 
     @property
     def base_url(self):
@@ -159,7 +167,7 @@ class Session(object):
 
     def request(self, method, url, *args, **kwargs):
         try:
-            resp = self._base_session.request(method, str(url), *args, **kwargs)
+            resp = self._base_session.request(method, str(url), timeout=self.timeout, *args, **kwargs)
             resp.raise_for_status()
         except requests.exceptions.HTTPError as exc:
             six.raise_from(exceptions.http_error_lookup(exc.response.status_code, exc.response.reason), exc)
