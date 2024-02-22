@@ -175,6 +175,10 @@ class Session(object):
             six.raise_from(exceptions.Timeout, exc)
         except requests.exceptions.RequestException as exc:
             six.raise_from(exceptions.RequestsException, exc)
+        # Uncomment to debug exceptions
+        # except Exception as exc:
+        #     from pudb import set_trace; set_trace()
+        #     raise
         return resp
 
     def head(self, url, **kwargs):
@@ -1250,12 +1254,15 @@ class Database(object):
         params = {}
         if startkey is not None:
             params["startkey"] = startkey
-        if key is not None:
-            params["key"] = key
-        if keys is not None:
-            params["keys"] = keys
         if endkey is not None:
             params["endkey"] = endkey
+        if keys is not None:
+            params["keys"] = keys
+        if key is not None:
+            if "keys" in params:
+                raise ValueError("Cannot use both 'key' and 'keys' parameters")
+            else:
+                params["keys"] = [key]
         if skip is not None:
             params["skip"] = skip
         if limit is not None:
@@ -1286,7 +1293,10 @@ class Database(object):
             path = self.path.add(["_design", design_doc, "_view", view_name])
 
         try:
-            data = self.server.session.post(path, json=params).json()
+            if len(params) > 0:
+                data = self.server.session.post(path, json=params).json()
+            else:
+                data = self.server.session.get(path).json()
         except exceptions.HTTPNotFound as exc:
             self.check()
             if "_design/{}".format(design_doc) not in self:
