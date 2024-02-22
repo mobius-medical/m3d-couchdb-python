@@ -1281,7 +1281,7 @@ class Database(object):
             params["include_docs"] = bool(include_docs)
             # params["reduce"] = _jsons(False)
         if update is not None:
-            assert update in ["true", "false", "lazy"]
+            assert update in [True, False, "true", "false", "lazy"]
             params["update"] = update
         if stable is not None:
             params["stable"] = bool(stable)
