@@ -175,10 +175,6 @@ class Session(object):
             six.raise_from(exceptions.Timeout, exc)
         except requests.exceptions.RequestException as exc:
             six.raise_from(exceptions.RequestsException, exc)
-        # Uncomment to debug exceptions
-        # except Exception as exc:
-        #     from pudb import set_trace; set_trace()
-        #     raise
         return resp
 
     def head(self, url, **kwargs):
@@ -1293,10 +1289,14 @@ class Database(object):
             path = self.path.add(["_design", design_doc, "_view", view_name])
 
         try:
-            if len(params) > 0:
+            post_params = ["keys", "startkey", "endkey"]
+            if any(k in params for k in post_params):
                 data = self.server.session.post(path, json=params).json()
             else:
-                data = self.server.session.get(path).json()
+                for k, v in params.items():
+                    if isinstance(v, bool):
+                        params[k] = str(v).lower()
+                data = self.server.session.get(path, params=params).json()
         except exceptions.HTTPNotFound as exc:
             self.check()
             if "_design/{}".format(design_doc) not in self:
