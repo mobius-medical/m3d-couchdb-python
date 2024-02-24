@@ -24,6 +24,7 @@ False
 """
 from __future__ import division  # For Python 2.x.
 
+import collections
 import io
 import json
 import itertools
@@ -106,8 +107,9 @@ def _build_file_tuple(attachments):
 def _encode_multipart_attachment_upload(doc, attachments):
     """Encode a multipart/related document upload consisting of a document and attachments"""
     doc = copy.deepcopy(doc)
-    if "_attachments" not in doc:
-        doc["_attachments"] = {}
+    # We need an ordered dict so that the attachments order in the multipart body
+    # match the order in the json document.
+    doc["_attachments"] = collections.OrderedDict(doc.get("_attachments", {}))
 
     file_tuples = _build_file_tuple(attachments)
     attachment_fields = []

@@ -338,7 +338,7 @@ class TestDatabase(utils.TempDatabaseMixin, unittest.TestCase):
             f.write('Hello!')
         doc = {}
         self.db['foo'] = doc
-        with open(tmpfile) as f:
+        with open(tmpfile, 'rb') as f:
             self.db.put_attachment(doc, f)
         doc = self.db.get('foo')
         self.assertTrue(doc['_attachments']['test.txt']['content_type'] == 'text/plain')
@@ -384,13 +384,15 @@ class TestDatabase(utils.TempDatabaseMixin, unittest.TestCase):
         del self.db[base_doc['_id']]
 
         # Multiple attachments
-        self.db.save(copy.deepcopy(base_doc), attachments=[('1.txt', "1"), ("2.txt", "2")])
+        self.db.save(copy.deepcopy(base_doc), attachments=[('9.txt', "9"), ("2.txt", "222") , ("zzz.txt", "some_text"), ("hello.png", b'dlldlldldlldld')])
         doc = self.db[base_doc['_id']]
-        self.assertEqual(len(doc['_attachments']), 2)
-        self.assertIn('1.txt', doc['_attachments'])
+        self.assertEqual(len(doc['_attachments']), 4)
+        self.assertIn('9.txt', doc['_attachments'])
         self.assertIn('2.txt', doc['_attachments'])
-        self.assertEqual(self.db.get_attachment(doc, filename='1.txt').read(), '1')
-        self.assertEqual(self.db.get_attachment(doc, filename='2.txt').read(), '2')
+        self.assertIn('zzz.txt', doc['_attachments'])
+        self.assertIn('hello.png', doc['_attachments'])
+        self.assertEqual(self.db.get_attachment(doc, filename='9.txt').read(), '9')
+        self.assertEqual(self.db.get_attachment(doc, filename='2.txt').read(), '222')
         del self.db[base_doc['_id']]
 
     def test_attachment_no_filename(self):
