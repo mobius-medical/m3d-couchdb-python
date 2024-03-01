@@ -23,17 +23,19 @@ from couchdb.multipart import write_multipart
 
 BULK_SIZE = 1000
 
-def dump_docs(envelope, db, docs):
-    for doc in docs:
-
-        print('Dumping document %r' % doc.id, file=sys.stderr)
+def dump_docs(envelope, db, rows):
+    for row in rows:
+        doc_id = row.id
+        doc_rev = row.value["rev"]
+        doc = row.doc
+        print('Dumping document %r' % doc_id, file=sys.stderr)
         attachments = doc.pop('_attachments', {})
         jsondoc = json.dumps(doc)
 
         if attachments:
             parts = envelope.open({
-                'Content-ID': doc.id,
-                'ETag': '"%s"' % doc.rev
+                'Content-ID': doc_id,
+                'ETag': '"%s"' % doc_rev
             })
             parts.add('application/json', jsondoc)
             for name, info in attachments.items():
@@ -53,8 +55,8 @@ def dump_docs(envelope, db, docs):
 
         else:
             envelope.add('application/json', jsondoc, {
-                'Content-ID': doc.id,
-                'ETag': '"%s"' % doc.rev
+                'Content-ID': doc_id,
+                'ETag': '"%s"' % doc_rev
             })
 
 def dump_db(dburl, username=None, password=None, boundary=None,
@@ -63,7 +65,7 @@ def dump_db(dburl, username=None, password=None, boundary=None,
     if output is None:
         output = sys.stdout if sys.version_info[0] < 3 else sys.stdout.buffer
 
-    db = Database(dburl)
+    db = Database.from_url(dburl)
     if username is not None and password is not None:
         db.resource.credentials = username, password
 
@@ -71,8 +73,8 @@ def dump_db(dburl, username=None, password=None, boundary=None,
     start, num = 0, db.info()['doc_count']
     while start < num:
         opts = {'limit': bulk_size, 'skip': start, 'include_docs': True}
-        docs = (row.doc for row in db.view('_all_docs', **opts))
-        dump_docs(envelope, db, docs)
+        rows = db.view('_all_docs', **opts)
+        dump_docs(envelope, db, rows)
         start += bulk_size
 
     envelope.close()
