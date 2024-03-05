@@ -5,6 +5,8 @@
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution.
+from __future__ import unicode_literals
+
 import copy
 from datetime import datetime
 import os
@@ -215,6 +217,14 @@ class TestDatabase(utils.TempDatabaseMixin, unittest.TestCase):
         del self.db['foo/bar']
         self.assertEqual(None, self.db.get('foo/bar'))
 
+        special_id = "☃Test?!@#$%^(){}[]\\|,.+-*\"';:.><,~=_`/Test123☃"
+        self.db[special_id] = {'foo': 'bar'}
+        self.assertTrue(special_id in self.db)
+        self.assertEqual('bar', self.db[special_id]['foo'])
+        del self.db[special_id]
+        self.assertEqual(None, self.db.get('foo/bar'))
+        self.assertFalse(special_id in self.db)
+
     def test_unicode(self):
         self.db[u'føø'] = {u'bår': u'Iñtërnâtiônàlizætiøn', 'baz': 'ASCII'}
         self.assertEqual(u'Iñtërnâtiônàlizætiøn', self.db[u'føø'][u'bår'])
@@ -357,7 +367,7 @@ class TestDatabase(utils.TempDatabaseMixin, unittest.TestCase):
             self.db.save(copy.deepcopy(base_doc), attachments=[f])
         doc = self.db[base_doc['_id']]
         self.assertTrue(doc['_attachments']['test.txt']['content_type'] == 'text/plain')
-        self.assertEqual(self.db.get_attachment(doc, filename='test.txt').read(), 'Hello!')
+        self.assertEqual(self.db.get_attachment(doc, filename='test.txt').read(), b'Hello!')
         del self.db[base_doc['_id']]
 
         # Overwrite filename
@@ -365,7 +375,7 @@ class TestDatabase(utils.TempDatabaseMixin, unittest.TestCase):
             self.db.save(copy.deepcopy(base_doc), attachments=[('new_filename.csv', f)])
         doc = self.db[base_doc['_id']]
         self.assertTrue(doc['_attachments']['new_filename.csv']['content_type'] == 'text/csv')
-        self.assertEqual(self.db.get_attachment(doc, filename='new_filename.csv').read(), 'Hello!')
+        self.assertEqual(self.db.get_attachment(doc, filename='new_filename.csv').read(), b'Hello!')
         del self.db[base_doc['_id']]
 
         # Overwrite filename and content_type
@@ -373,14 +383,14 @@ class TestDatabase(utils.TempDatabaseMixin, unittest.TestCase):
             self.db.save(copy.deepcopy(base_doc), attachments=[('new_filename.csv', f, 'text/html')])
         doc = self.db[base_doc['_id']]
         self.assertTrue(doc['_attachments']['new_filename.csv']['content_type'] == 'text/html')
-        self.assertEqual(self.db.get_attachment(doc, filename='new_filename.csv').read(), 'Hello!')
+        self.assertEqual(self.db.get_attachment(doc, filename='new_filename.csv').read(), b'Hello!')
         del self.db[base_doc['_id']]
 
         # No file object just data
         self.db.save(copy.deepcopy(base_doc), attachments=[('new_filename.csv', "SOME TEXT", 'text/html')])
         doc = self.db[base_doc['_id']]
         self.assertTrue(doc['_attachments']['new_filename.csv']['content_type'] == 'text/html')
-        self.assertEqual(self.db.get_attachment(doc, filename='new_filename.csv').read(), 'SOME TEXT')
+        self.assertEqual(self.db.get_attachment(doc, filename='new_filename.csv').read(), b'SOME TEXT')
         del self.db[base_doc['_id']]
 
         # Multiple attachments
@@ -391,8 +401,8 @@ class TestDatabase(utils.TempDatabaseMixin, unittest.TestCase):
         self.assertIn('2.txt', doc['_attachments'])
         self.assertIn('zzz.txt', doc['_attachments'])
         self.assertIn('hello.png', doc['_attachments'])
-        self.assertEqual(self.db.get_attachment(doc, filename='9.txt').read(), '9')
-        self.assertEqual(self.db.get_attachment(doc, filename='2.txt').read(), '222')
+        self.assertEqual(self.db.get_attachment(doc, filename='9.txt').read(), b'9')
+        self.assertEqual(self.db.get_attachment(doc, filename='2.txt').read(), b'222')
         del self.db[base_doc['_id']]
 
     def test_attachment_no_filename(self):
@@ -590,12 +600,11 @@ class TestDatabase(utils.TempDatabaseMixin, unittest.TestCase):
     def test_copy_doc_dest_baddoc(self):
         self.assertRaises(TypeError, self.db.copy, 'foo', object())
 
-    @unittest.skip("changes() needs re-implementation")
     def test_changes(self):
         self.db['foo'] = {'bar': True}
-        self.assertEqual(self.db.changes(since=0)['last_seq'], 1)
+        self.assertTrue(self.db.changes(since=0)['last_seq'].startswith('1'))
         first = next(self.db.changes(feed='continuous'))
-        self.assertEqual(first['seq'], 1)
+        self.assertTrue(first['seq'].startswith('1'))
         self.assertEqual(first['id'], 'foo')
 
     @unittest.skip("changes() needs re-implementation")
@@ -617,7 +626,6 @@ class TestDatabase(utils.TempDatabaseMixin, unittest.TestCase):
         scheme, netloc = util.urlsplit(client.DEFAULT_BASE_URL)[:2]
         self.assertTrue(self.db.resource.session.connection_pool.conns[(scheme, netloc)])
 
-    @unittest.skip("changes() needs re-implementation")
     def test_changes_conn_usable(self):
         # Consume a changes feed to get a used connection in the pool.
         list(self.db.changes(feed='continuous', timeout=0))
@@ -625,31 +633,25 @@ class TestDatabase(utils.TempDatabaseMixin, unittest.TestCase):
         # in a good state from the previous request.
         self.assertTrue(self.db.info()['doc_count'] == 0)
 
-    @unittest.skip("changes() needs re-implementation")
     def test_changes_conn_usable_selector(self):
-        if self.server.version_info()[0] < 2:
-            return
         # Consume a changes feed to get a used connection in the pool.
         list(self.db.changes(feed='continuous',
-                             filter='_selector',
+                             filter='selector',
                              timeout=0,
-                             _selector={'selector': {}}))
+                             filter_data={}
+                             ))
         # Try using the connection again to make sure the connection was left
         # in a good state from the previous request.
         self.assertTrue(self.db.info()['doc_count'] == 0)
 
-    @unittest.skip("changes() needs re-implementation")
     def test_changes_usable_selector(self):
-        if self.server.version_info()[0] < 2:
-            return
         # Consume a changes feed to get a used connection in the pool.
-        list(self.db.changes(filter='_selector',
-                             _selector={'selector': {}}))
+        list(self.db.changes(filter='selector',
+                             filter_data={'selector': {}}))
         # Try using the connection again to make sure the connection was left
         # in a good state from the previous request.
         self.assertTrue(self.db.info()['doc_count'] == 0)
 
-    @unittest.skip("changes() needs re-implementation")
     def test_changes_heartbeat(self):
         def wakeup():
             time.sleep(.3)
