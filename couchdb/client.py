@@ -436,6 +436,31 @@ class Server(object):
         data.update(options)
         return self._session.post("_replicate", json=data).json()
 
+    def get_scheduler_docs(self, replicator_db=None, limit=None, skip=None):
+        path = furl.Path("_scheduler/docs")
+        if replicator_db is not None:
+            path.add([replicator_db])
+        params = {}
+        if limit is not None:
+            params['limit'] = _jsons(limit)
+        if skip is not None:
+            params['skip'] = _jsons(skip)
+        return self._session.get(path, params=params).json()
+
+    def get_scheduler_doc(self, replicator_db, doc_id):
+        # This takes care of escaping any slashes in replicator_db or doc_id
+        path = furl.Path(["_scheduler", "docs", replicator_db, doc_id])
+        return self._session.get(path).json()
+
+    def get_scheduler_jobs(self, limit=None, skip=None):
+        params = {}
+        if limit is not None:
+            params['limit'] = _jsons(limit)
+        if skip is not None:
+            params['skip'] = _jsons(skip)
+        return self._session.get("_scheduler/jobs", params=params).json()
+
+
     def add_user(self, name, password, roles=None):
         """Add regular user in authentication database.
 
