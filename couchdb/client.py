@@ -1561,9 +1561,7 @@ class Database(object):
 
         if stream:
             return _iter_stream_response(response)
-        else:
-            _, _, data = self.resource.get_json('_changes', **opts)
-        return data
+        return response.json()
 
 def _path_from_name(name, type):
     """Expand a 'design/foo' style name to its full path as a list of
