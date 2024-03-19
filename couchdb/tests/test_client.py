@@ -627,7 +627,6 @@ class TestDatabase(utils.TempDatabaseMixin, unittest.TestCase):
 
     def test_changes_conn_usable(self):
         # Consume a changes feed to get a used connection in the pool.
-        self.db.changes(feed='continuous', timeout=0)
         list(self.db.changes(feed='continuous', timeout=0))
         # Try using the connection again to make sure the connection was left
         # in a good state from the previous request.

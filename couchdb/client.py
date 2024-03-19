@@ -437,6 +437,31 @@ class Server(object):
         data.update(options)
         return self._session.post("_replicate", json=data).json()
 
+    def get_scheduler_docs(self, replicator_db=None, limit=None, skip=None):
+        path = furl.Path("_scheduler/docs")
+        if replicator_db is not None:
+            path.add([replicator_db])
+        params = {}
+        if limit is not None:
+            params['limit'] = _jsons(limit)
+        if skip is not None:
+            params['skip'] = _jsons(skip)
+        return self._session.get(path, params=params).json()
+
+    def get_scheduler_doc(self, replicator_db, doc_id):
+        # This takes care of escaping any slashes in replicator_db or doc_id
+        path = furl.Path(["_scheduler", "docs", replicator_db, doc_id])
+        return self._session.get(path).json()
+
+    def get_scheduler_jobs(self, limit=None, skip=None):
+        params = {}
+        if limit is not None:
+            params['limit'] = _jsons(limit)
+        if skip is not None:
+            params['skip'] = _jsons(skip)
+        return self._session.get("_scheduler/jobs", params=params).json()
+
+
     def add_user(self, name, password, roles=None):
         """Add regular user in authentication database.
 
@@ -858,7 +883,7 @@ class Database(object):
             self.server.session.delete(self.path.add([doc['_id']]), params={'rev': doc['_rev']})
         except exceptions.HTTPNotFound as exc:
             self.check()
-            six.raise_from(exceptions.MissingDocument("Document %r does not exist" % doc['_id']), exc)
+            six.raise_from(exceptions.MissingDocument("Document '%s' does not exist" % doc['_id']), exc)
 
     def get(self,
             id,
@@ -1287,7 +1312,6 @@ class Database(object):
         - `value`: the value for the index row.
         - `doc`: the document, if any.
         """
-        use_multipart = False
         params = {}
         if startkey is not None:
             params["startkey"] = startkey
@@ -1316,7 +1340,6 @@ class Database(object):
             params["reduce"] = bool(reduce)
         if include_docs is not None:
             params["include_docs"] = bool(include_docs)
-            use_multipart = True
             # params["reduce"] = _jsons(False)
         if update is not None:
             assert update in [True, False, "true", "false", "lazy"]
@@ -1539,8 +1562,8 @@ class Database(object):
         if stream:
             return _iter_stream_response(response)
         else:
-            return response.json()
-
+            _, _, data = self.resource.get_json('_changes', **opts)
+        return data
 
 def _path_from_name(name, type):
     """Expand a 'design/foo' style name to its full path as a list of
