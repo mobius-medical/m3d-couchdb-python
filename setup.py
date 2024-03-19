@@ -50,6 +50,7 @@ setup(
         "requests",
         "requests_toolbelt",
         "six",
+        "enum34; python_version < '3'"
     ],
     test_suite='couchdb.tests.__main__.suite',
     zip_safe=True,

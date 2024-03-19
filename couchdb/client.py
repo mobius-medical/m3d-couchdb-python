@@ -31,6 +31,7 @@ import itertools
 import mimetypes
 import os
 import copy
+import enum
 
 import furl
 import six
@@ -53,6 +54,42 @@ BIN_MIME = "application/octet-stream"
 DEFAULT_RETRY_STRATEGY = urllib3.Retry(
     total=10,
 )
+
+Filter = collections.namedtuple('Filter', ('param_name', 'data_name'))
+
+
+class BuiltInFilters(enum.Enum):
+    _doc_ids = Filter(param_name=None, data_name='doc_ids')
+    _selector = Filter(param_name=None, data_name='selector')
+    _design = Filter(param_name=None, data_name=None)
+    _view = Filter(param_name='view', data_name=None)
+
+
+def _set_filter_options(filter_, filter_options, params, data):
+    if filter_ in BuiltInFilters.__members__:
+        filter_ = BuiltInFilters[filter_]
+    if filter_ in BuiltInFilters:
+        params['filter'] = filter_.name
+        built_in_filter = filter_.value
+
+        assert built_in_filter.param_name is None or built_in_filter.data_name is None, "At least one must be None"
+
+        if built_in_filter.param_name is None and built_in_filter.data_name is None and filter_options:
+            raise ValueError("Specifying filter options is not allowed for the selected built-in filter '{}'".format(filter_.name))
+        elif filter_options is None:
+            raise ValueError(
+                "The selected built-in filter '{}' requires filter options to be specified, "
+                "e.g. selector function or map function".format(filter_.name)
+            )
+        if built_in_filter.param_name is not None:
+            params[built_in_filter.param_name] = filter_options
+        elif built_in_filter.data_name is not None:
+            data[built_in_filter.data_name] = filter_options
+    else:
+        # Otherwise a filter function is directly given by path: '<design_doc>/<filter_function_name>'
+        params['filter'] = filter_
+        if filter_options:
+            raise ValueError("Specifying filter options is not allowed when giving a filter function path")
 
 
 def _jsons(data, indent=None):
@@ -131,7 +168,6 @@ def _encode_multipart_attachment_upload(doc, attachments):
         data=json.dumps(doc),
         headers={'Content-Type': 'application/json; charset=UTF-8'},
     )
-
     boundary = filepost.choose_boundary()
     body, _ = filepost.encode_multipart_formdata([doc_field] + attachment_fields, boundary)
     content_type = 'multipart/related; boundary=%s' % boundary
@@ -167,9 +203,11 @@ class Session(object):
     def headers(self, headers):
         self._base_session.headers = headers
 
-    def request(self, method, url, *args, **kwargs):
+    def request(self, method, url, **kwargs):
+        if 'timeout' not in kwargs:
+            kwargs['timeout'] = self.timeout
         try:
-            resp = self._base_session.request(method, str(url), timeout=self.timeout, *args, **kwargs)
+            resp = self._base_session.request(method, str(url), **kwargs)
             resp.raise_for_status()
         except requests.exceptions.HTTPError as exc:
             six.raise_from(exceptions.http_error_lookup(exc.response.status_code, exc.response.reason), exc)
@@ -288,7 +326,7 @@ class Server(object):
         try:
             self._session.delete(quote(name))
         except exceptions.HTTPNotFound as exc:
-            six.raise_from(exceptions.MissingDatabase("Database does not exist"), exc)
+            six.raise_from(exceptions.MissingDatabase("Database %r does not exist" % name), exc)
 
     def __getitem__(self, name):
         """Return a `Database` object representing the database with the
@@ -555,7 +593,7 @@ class Database(object):
 
     def check(self):
         if not self.exists():
-            raise exceptions.MissingDatabase("Database does not exist")
+            raise exceptions.MissingDatabase("Database %r does not exist" % self.name)
 
     def create(self):
         """Create database if it doesn't already exist"""
@@ -588,14 +626,14 @@ class Database(object):
         try:
             return iter([item.id for item in self.view('_all_docs')])
         except exceptions.HTTPNotFound as exc:
-            six.raise_from(exceptions.MissingDatabase("Database does not exist"), exc)
+            six.raise_from(exceptions.MissingDatabase("Database %r does not exist" % self.name), exc)
 
     def __len__(self):
         """Return the number of documents in the database."""
         try:
             return self.server.session.get(self.path).json()['doc_count']
         except exceptions.HTTPNotFound as exc:
-            six.raise_from(exceptions.MissingDatabase("Database does not exist"), exc)
+            six.raise_from(exceptions.MissingDatabase("Database %r does not exist" % self.name), exc)
 
     def __nonzero__(self):
         """Return whether the database is available."""
@@ -613,7 +651,7 @@ class Database(object):
             resp = self.server.session.head(self.path.add([id]))
         except exceptions.HTTPNotFound as exc:
             self.check()
-            six.raise_from(exceptions.MissingDocument("Document '%s' does not exist" % id), exc)
+            six.raise_from(exceptions.MissingDocument("Document %r does not exist" % id), exc)
         rev = resp.headers['ETag'].strip('"')
         return self.delete({'_id': id, '_rev': rev})
 
@@ -628,7 +666,7 @@ class Database(object):
             return Document(self.server.session.get(self.path.add([id])).json())
         except exceptions.HTTPNotFound as exc:
             self.check()
-            six.raise_from(exceptions.MissingDocument("Document '%s' does not exist" % id), exc)
+            six.raise_from(exceptions.MissingDocument(u"Document %r does not exist" % id), exc)
 
     def __setitem__(self, id, content):
         """Create or update a document with the specified ID.
@@ -820,7 +858,7 @@ class Database(object):
             self.server.session.delete(self.path.add([doc['_id']]), params={'rev': doc['_rev']})
         except exceptions.HTTPNotFound as exc:
             self.check()
-            six.raise_from(exceptions.MissingDocument("Document '%s' does not exist" % doc['_id']), exc)
+            six.raise_from(exceptions.MissingDocument("Document %r does not exist" % doc['_id']), exc)
 
     def get(self,
             id,
@@ -1249,6 +1287,7 @@ class Database(object):
         - `value`: the value for the index row.
         - `doc`: the document, if any.
         """
+        use_multipart = False
         params = {}
         if startkey is not None:
             params["startkey"] = startkey
@@ -1277,6 +1316,7 @@ class Database(object):
             params["reduce"] = bool(reduce)
         if include_docs is not None:
             params["include_docs"] = bool(include_docs)
+            use_multipart = True
             # params["reduce"] = _jsons(False)
         if update is not None:
             assert update in [True, False, "true", "false", "lazy"]
@@ -1302,8 +1342,8 @@ class Database(object):
         except exceptions.HTTPNotFound as exc:
             self.check()
             if "_design/{}".format(design_doc) not in self:
-                six.raise_from(exceptions.MissingDocument("Design doc '%s' does not exist" % design_doc), exc)
-            six.raise_from(exceptions.MissingView("View '%s' in design doc '%s' does not exist" % (view_name, design_doc)), exc)
+                six.raise_from(exceptions.MissingDocument("Design doc %r does not exist" % design_doc), exc)
+            six.raise_from(exceptions.MissingView("View %r in design doc %r does not exist" % (view_name, design_doc)), exc)
 
         return views.ViewResult(
             [
@@ -1422,40 +1462,85 @@ class Database(object):
         _, headers, body = func(**options)
         return headers, body
 
-    def _changes(self, **opts):
-        raise NotImplementedError
-        # use streaming `get` and `post` methods
-        if opts.get('filter') == '_selector':
-            selector = opts.pop('_selector', None)
-            _, _, data = self.resource.post('_changes', selector, **opts)
+    def changes(
+            self,
+            feed="normal",
+            filter=None,
+            filter_options=None,
+            conflicts=None,
+            descending=None,
+            heartbeat=None,
+            include_docs=None,
+            attachments=None,
+            att_encoding_info=None,
+            last_event_id=None,
+            limit=None,
+            since=None,
+            style=None,
+            timeout=None,
+            seq_interval=None,
+    ):
+        stream = False
+        params = {}
+        data = {}
+
+        if feed not in ("normal", "continuous"):
+            raise ValueError("Unsupported 'feed' value, currently only 'normal' and 'continuous' are supported")
+        params['feed'] = feed
+        if feed == 'continuous':
+            stream = True
+
+        _set_filter_options(filter, filter_options, params, data)
+
+        if conflicts is not None:
+            params["conflicts"] = _jsons(bool(conflicts))
+        if descending is not None:
+            params["descending"] = _jsons(bool(descending))
+        if heartbeat is not None:
+            params['heartbeat'] = heartbeat
+        if include_docs is not None:
+            params['include_docs'] = _jsons(bool(include_docs))
+        if attachments is not None:
+            params['attachments'] = _jsons(bool(attachments))
+        if att_encoding_info is not None:
+            params['att_encoding_info'] = _jsons(bool(att_encoding_info))
+        if last_event_id is not None:
+            params['last-event-id '] = last_event_id
+        if limit is not None:
+            params['limit'] = limit
+        if since is not None:
+            params['since'] = since
+        if style is not None:
+            params['style'] = style
+        if timeout is not None:
+            params['timeout'] = timeout
+        if seq_interval is not None:
+            params['seq_interval'] = seq_interval
+
+        def _iter_stream_response(response):
+            for line in response.iter_lines():
+                if not line:  # CouchDB sends empty lines as heartbeats
+                    continue
+                doc = json.loads(line.decode('utf-8'))
+                if 'last_seq' in doc:
+                    # We need to explicitly close the stream connection otherwise it's kept open until request timeout is reached
+                    response.close()
+                    raise StopIteration
+                yield doc
+
+        try:
+            if data:
+                response = self.server.session.post(self.path.add("_changes"), params=params, json=data, stream=stream)
+            else:
+                response = self.server.session.get(self.path.add("_changes"), params=params, stream=stream)
+        except exceptions.HTTPNotFound as exc:
+            six.raise_from(exceptions.MissingDatabase("Database %r does not exist" % self.name), exc)
+
+        if stream:
+            return _iter_stream_response(response)
         else:
-            _, _, data = self.resource.get('_changes', **opts)
-        lines = data.iterchunks()
-        for ln in lines:
-            if not ln: # skip heartbeats
-                continue
-            doc = json.loads(ln.decode('utf-8'))
-            if 'last_seq' in doc: # consume the rest of the response if this
-                for ln in lines:  # was the last line, allows conn reuse
-                    pass
-            yield doc
+            return response.json()
 
-    def changes(self, **opts):
-        """Retrieve a changes feed from the database.
-
-        :param opts: optional query string parameters
-        :return: an iterable over change notification dicts
-        """
-        raise NotImplementedError
-        if opts.get('feed') == 'continuous':
-            return self._changes(**opts)
-
-        if opts.get('filter') == '_selector':
-            selector = opts.pop('_selector', None)
-            _, _, data = self.resource.post_json('_changes', selector, **opts)
-        else:
-            _, _, data = self.resource.get_json('_changes', **opts)
-        return data
 
 def _path_from_name(name, type):
     """Expand a 'design/foo' style name to its full path as a list of
