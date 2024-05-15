@@ -52,7 +52,7 @@ __docformat__ = 'restructuredtext en'
 DEFAULT_BASE_URL = os.environ.get('COUCHDB_URL', 'http://localhost:5984/')
 BIN_MIME = "application/octet-stream"
 DEFAULT_RETRY_STRATEGY = urllib3.Retry(
-    total=10,
+    total=10, allowed_methods= {'GET', 'HEAD', 'OPTIONS', 'TRACE'},
 )
 
 Filter = collections.namedtuple('Filter', ('param_name', 'data_name'))
